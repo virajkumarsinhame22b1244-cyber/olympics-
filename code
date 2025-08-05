@@ -5,7 +5,7 @@ import { TrendingUp, Medal, Users, Globe, Award, Target } from 'lucide-react';
 const OlympicsAnalysisDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Medal data from Paris 2024 and historical context
+
   const paris2024Data = [
     { country: 'USA', gold: 40, silver: 44, bronze: 42, total: 126, population: 331900000, gdp: 25.46 },
     { country: 'China', gold: 40, silver: 27, bronze: 24, total: 91, population: 1412000000, gdp: 17.73 },
@@ -31,7 +31,6 @@ const OlympicsAnalysisDashboard = () => {
     { year: 2024, women: 50, men: 50, total: 10714 }
   ];
 
-  // Sport popularity and competitiveness analysis
   const sportAnalysis = [
     { sport: 'Swimming', medals: 35, countries: 28, growth: 15, competitiveness: 'High', prediction: 'Stable' },
     { sport: 'Athletics', medals: 48, countries: 45, growth: 8, competitiveness: 'Very High', prediction: 'Stable' },
@@ -52,7 +51,7 @@ const OlympicsAnalysisDashboard = () => {
     medalsPerGDP: (country.total / country.gdp).toFixed(2)
   }));
 
-  // Predictions for LA 2028
+
   const predictions2028 = [
     { country: 'USA', predicted: 135, confidence: 85, reasoning: 'Home advantage, strong infrastructure' },
     { country: 'China', predicted: 95, confidence: 80, reasoning: 'Continued investment, young talent' },
