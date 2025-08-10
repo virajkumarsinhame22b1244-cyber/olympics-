@@ -1,360 +1,536 @@
-import React, { useState, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
-import { TrendingUp, Medal, Users, Globe, Award, Target } from 'lucide-react';
+-- Olympics Analysis Database Schema
+-- This database supports comprehensive Olympic Games analysis
 
-const OlympicsAnalysisDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+-- Create Database
+CREATE DATABASE OlympicsAnalysis;
+USE OlympicsAnalysis;
+
+-- 1. Countries Master Table
+CREATE TABLE Countries (
+    CountryID INT PRIMARY KEY IDENTITY(1,1),
+    CountryCode VARCHAR(3) NOT NULL UNIQUE,
+    CountryName VARCHAR(100) NOT NULL,
+    Population BIGINT,
+    GDP_Trillion DECIMAL(10,2),
+    Continent VARCHAR(50),
+    CreatedDate DATETIME DEFAULT GETDATE()
+);
+
+-- 2. Olympic Games Table
+CREATE TABLE OlympicGames (
+    GameID INT PRIMARY KEY IDENTITY(1,1),
+    GameYear INT NOT NULL,
+    Season VARCHAR(10) NOT NULL, -- Summer/Winter
+    HostCity VARCHAR(100),
+    HostCountryID INT,
+    StartDate DATE,
+    EndDate DATE,
+    TotalAthletes INT,
+    TotalEvents INT,
+    ParticipatingCountries INT,
+    WomenParticipation DECIMAL(5,2), -- Percentage
+    MenParticipation DECIMAL(5,2), -- Percentage
+    FOREIGN KEY (HostCountryID) REFERENCES Countries(CountryID)
+);
+
+-- 3. Sports Categories
+CREATE TABLE Sports (
+    SportID INT PRIMARY KEY IDENTITY(1,1),
+    SportName VARCHAR(100) NOT NULL,
+    SportCategory VARCHAR(50), -- Individual/Team/Mixed
+    FirstOlympicYear INT,
+    IsActive BIT DEFAULT 1,
+    CompetitivenessLevel VARCHAR(20), -- Low/Medium/High/Very High
+    GrowthRate DECIMAL(5,2) -- Percentage growth
+);
+
+-- 4. Events Table
+CREATE TABLE Events (
+    EventID INT PRIMARY KEY IDENTITY(1,1),
+    EventName VARCHAR(200) NOT NULL,
+    SportID INT,
+    Gender VARCHAR(10), -- Men/Women/Mixed
+    GameID INT,
+    FOREIGN KEY (SportID) REFERENCES Sports(SportID),
+    FOREIGN KEY (GameID) REFERENCES OlympicGames(GameID)
+);
+
+-- 5. Medal Results Table
+CREATE TABLE MedalResults (
+    ResultID INT PRIMARY KEY IDENTITY(1,1),
+    GameID INT,
+    CountryID INT,
+    SportID INT,
+    EventID INT,
+    MedalType VARCHAR(10), -- Gold/Silver/Bronze
+    AthleteCount INT DEFAULT 1, -- For team events
+    RecordType VARCHAR(20), -- Olympic Record/World Record/None
+    FOREIGN KEY (GameID) REFERENCES OlympicGames(GameID),
+    FOREIGN KEY (CountryID) REFERENCES Countries(CountryID),
+    FOREIGN KEY (SportID) REFERENCES Sports(SportID),
+    FOREIGN KEY (EventID) REFERENCES Events(EventID)
+);
+
+-- 6. Predictions Table for Future Games
+CREATE TABLE Predictions (
+    PredictionID INT PRIMARY KEY IDENTITY(1,1),
+    CountryID INT,
+    GameYear INT,
+    PredictedTotalMedals INT,
+    ConfidenceLevel DECIMAL(5,2),
+    Reasoning TEXT,
+    PredictionDate DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (CountryID) REFERENCES Countries(CountryID)
+);
+
+-- 7. Historical Trends Table
+CREATE TABLE HistoricalTrends (
+    TrendID INT PRIMARY KEY IDENTITY(1,1),
+    GameYear INT,
+    TotalAthletes INT,
+    WomenPercentage DECIMAL(5,2),
+    MenPercentage DECIMAL(5,2),
+    NewSports INT,
+    ParticipatingCountries INT
+);
+
+-- Insert Sample Data
+
+-- Countries Data
+INSERT INTO Countries (CountryCode, CountryName, Population, GDP_Trillion, Continent) VALUES
+('USA', 'United States', 331900000, 25.46, 'North America'),
+('CHN', 'China', 1412000000, 17.73, 'Asia'),
+('JPN', 'Japan', 125800000, 4.94, 'Asia'),
+('AUS', 'Australia', 25700000, 1.55, 'Oceania'),
+('FRA', 'France', 67750000, 2.94, 'Europe'),
+('NED', 'Netherlands', 17440000, 0.91, 'Europe'),
+('GBR', 'Great Britain', 67500000, 3.13, 'Europe'),
+('KOR', 'South Korea', 51780000, 1.81, 'Asia'),
+('ITA', 'Italy', 59110000, 2.11, 'Europe'),
+('GER', 'Germany', 83200000, 4.26, 'Europe');
+
+-- Olympic Games Data
+INSERT INTO OlympicGames (GameYear, Season, HostCity, HostCountryID, TotalAthletes, TotalEvents, ParticipatingCountries, WomenParticipation, MenParticipation) VALUES
+(1996, 'Summer', 'Atlanta', 1, 10318, 271, 197, 34.0, 66.0),
+(2000, 'Summer', 'Sydney', 4, 10651, 300, 199, 38.0, 62.0),
+(2004, 'Summer', 'Athens', NULL, 10625, 301, 201, 41.0, 59.0),
+(2008, 'Summer', 'Beijing', 2, 10942, 302, 204, 43.0, 57.0),
+(2012, 'Summer', 'London', 7, 10568, 302, 204, 44.0, 56.0),
+(2016, 'Summer', 'Rio de Janeiro', NULL, 11238, 306, 207, 45.0, 55.0),
+(2020, 'Summer', 'Tokyo', 3, 11656, 339, 206, 48.0, 52.0),
+(2024, 'Summer', 'Paris', 5, 10714, 329, 206, 50.0, 50.0),
+(2028, 'Summer', 'Los Angeles', 1, 11000, 335, 210, 51.0, 49.0);
+
+-- Sports Data
+INSERT INTO Sports (SportName, SportCategory, FirstOlympicYear, CompetitivenessLevel, GrowthRate) VALUES
+('Swimming', 'Individual', 1896, 'High', 15.0),
+('Athletics', 'Individual', 1896, 'Very High', 8.0),
+('Cycling', 'Individual', 1896, 'Medium', 25.0),
+('Gymnastics', 'Individual', 1896, 'High', 5.0),
+('Rowing', 'Individual', 1896, 'Medium', -5.0),
+('Wrestling', 'Individual', 1896, 'High', 12.0),
+('Judo', 'Individual', 1964, 'High', 18.0),
+('Sailing', 'Individual', 1900, 'Medium', -8.0),
+('Skateboarding', 'Individual', 2020, 'Low', 200.0),
+('Surfing', 'Individual', 2020, 'Low', 150.0);
+
+-- Medal Results for Paris 2024 (Sample Data)
+INSERT INTO MedalResults (GameID, CountryID, SportID, MedalType, AthleteCount) VALUES
+-- USA medals (simplified sample)
+(8, 1, 1, 'Gold', 1), (8, 1, 1, 'Gold', 1), (8, 1, 1, 'Gold', 1), -- Swimming golds
+(8, 1, 2, 'Gold', 1), (8, 1, 2, 'Gold', 1), -- Athletics golds
+(8, 1, 1, 'Silver', 1), (8, 1, 2, 'Silver', 1),
+(8, 1, 1, 'Bronze', 1), (8, 1, 2, 'Bronze', 1),
+-- China medals
+(8, 2, 1, 'Gold', 1), (8, 2, 1, 'Gold', 1),
+(8, 2, 2, 'Gold', 1), (8, 2, 6, 'Gold', 1),
+(8, 2, 1, 'Silver', 1), (8, 2, 2, 'Silver', 1),
+-- Add more medal data as needed
+(8, 3, 1, 'Gold', 1), (8, 3, 7, 'Gold', 1), -- Japan
+(8, 4, 1, 'Gold', 1), (8, 4, 2, 'Gold', 1); -- Australia
+
+-- Predictions for LA 2028
+INSERT INTO Predictions (CountryID, GameYear, PredictedTotalMedals, ConfidenceLevel, Reasoning) VALUES
+(1, 2028, 135, 85.0, 'Home advantage, strong infrastructure'),
+(2, 2028, 95, 80.0, 'Continued investment, young talent'),
+(4, 2028, 58, 75.0, 'Growing sports programs'),
+(3, 2028, 42, 70.0, 'Post-Tokyo momentum maintaining'),
+(5, 2028, 55, 65.0, 'Paris 2024 legacy effects'),
+(6, 2028, 38, 70.0, 'Efficient small nation model'),
+(7, 2028, 62, 75.0, 'Strong Olympic program continuity');
+
+-- Historical Trends Data
+INSERT INTO HistoricalTrends (GameYear, TotalAthletes, WomenPercentage, MenPercentage, NewSports, ParticipatingCountries) VALUES
+(1996, 10318, 34.0, 66.0, 2, 197),
+(2000, 10651, 38.0, 62.0, 3, 199),
+(2004, 10625, 41.0, 59.0, 1, 201),
+(2008, 10942, 43.0, 57.0, 2, 204),
+(2012, 10568, 44.0, 56.0, 2, 204),
+(2016, 11238, 45.0, 55.0, 2, 207),
+(2020, 11656, 48.0, 52.0, 5, 206),
+(2024, 10714, 50.0, 50.0, 4, 206);
+
+-- Key Analysis Queries
+
+-- 1. Medal Table for Paris 2024
+CREATE VIEW vw_Paris2024_MedalTable AS
+SELECT 
+    c.CountryName,
+    c.CountryCode,
+    SUM(CASE WHEN mr.MedalType = 'Gold' THEN 1 ELSE 0 END) AS Gold,
+    SUM(CASE WHEN mr.MedalType = 'Silver' THEN 1 ELSE 0 END) AS Silver,
+    SUM(CASE WHEN mr.MedalType = 'Bronze' THEN 1 ELSE 0 END) AS Bronze,
+    COUNT(*) AS Total,
+    c.Population,
+    c.GDP_Trillion,
+    CAST(COUNT(*) * 1000000.0 / c.Population AS DECIMAL(10,2)) AS MedalsPerMillion,
+    CAST(COUNT(*) / c.GDP_Trillion AS DECIMAL(10,2)) AS MedalsPerGDPTrillion
+FROM MedalResults mr
+JOIN Countries c ON mr.CountryID = c.CountryID
+JOIN OlympicGames og ON mr.GameID = og.GameID
+WHERE og.GameYear = 2024
+GROUP BY c.CountryName, c.CountryCode, c.Population, c.GDP_Trillion
+ORDER BY 
+    SUM(CASE WHEN mr.MedalType = 'Gold' THEN 1 ELSE 0 END) DESC,
+    SUM(CASE WHEN mr.MedalType = 'Silver' THEN 1 ELSE 0 END) DESC,
+    SUM(CASE WHEN mr.MedalType = 'Bronze' THEN 1 ELSE 0 END) DESC;
+
+-- 2. Gender Participation Trends
+CREATE VIEW vw_GenderTrends AS
+SELECT 
+    GameYear,
+    TotalAthletes,
+    WomenPercentage,
+    MenPercentage,
+    ParticipatingCountries
+FROM HistoricalTrends
+ORDER BY GameYear;
+
+-- 3. Sport Analysis with Growth Metrics
+CREATE VIEW vw_SportAnalysis AS
+SELECT 
+    s.SportName,
+    s.CompetitivenessLevel,
+    s.GrowthRate,
+    COUNT(DISTINCT mr.CountryID) AS CountriesWithMedals,
+    COUNT(*) AS TotalMedals,
+    CASE 
+        WHEN s.GrowthRate > 100 THEN 'Emerging'
+        WHEN s.GrowthRate > 10 THEN 'Rising'
+        WHEN s.GrowthRate > -5 THEN 'Stable'
+        ELSE 'Declining'
+    END AS TrendPrediction
+FROM Sports s
+LEFT JOIN MedalResults mr ON s.SportID = mr.SportID
+LEFT JOIN OlympicGames og ON mr.GameID = og.GameID
+WHERE og.GameYear = 2024 OR og.GameYear IS NULL
+GROUP BY s.SportName, s.CompetitivenessLevel, s.GrowthRate
+ORDER BY s.GrowthRate DESC;
+
+-- 4. Efficiency Analysis Query
+SELECT 
+    CountryName,
+    Gold, Silver, Bronze, Total,
+    MedalsPerMillion,
+    MedalsPerGDPTrillion,
+    RANK() OVER (ORDER BY MedalsPerMillion DESC) AS EfficiencyRank
+FROM vw_Paris2024_MedalTable
+WHERE Total >= 10; -- Only countries with significant medal counts
 
 
-  const paris2024Data = [
-    { country: 'USA', gold: 40, silver: 44, bronze: 42, total: 126, population: 331900000, gdp: 25.46 },
-    { country: 'China', gold: 40, silver: 27, bronze: 24, total: 91, population: 1412000000, gdp: 17.73 },
-    { country: 'Japan', gold: 20, silver: 12, bronze: 13, total: 45, population: 125800000, gdp: 4.94 },
-    { country: 'Australia', gold: 18, silver: 19, bronze: 16, total: 53, population: 25700000, gdp: 1.55 },
-    { country: 'France', gold: 16, silver: 26, bronze: 22, total: 64, population: 67750000, gdp: 2.94 },
-    { country: 'Netherlands', gold: 15, silver: 7, bronze: 12, total: 34, population: 17440000, gdp: 0.91 },
-    { country: 'GB', gold: 14, silver: 22, bronze: 29, total: 65, population: 67500000, gdp: 3.13 },
-    { country: 'South Korea', gold: 13, silver: 9, bronze: 10, total: 32, population: 51780000, gdp: 1.81 },
-    { country: 'Italy', gold: 12, silver: 13, bronze: 15, total: 40, population: 59110000, gdp: 2.11 },
-    { country: 'Germany', gold: 12, silver: 13, bronze: 8, total: 33, population: 83200000, gdp: 4.26 }
-  ];
+Worksheet 1: Raw Data
+Purpose: Store all raw data imported from SQL database
 
-  // Gender participation historical data
-  const genderTrends = [
-    { year: 1996, women: 34, men: 66, total: 10318 },
-    { year: 2000, women: 38, men: 62, total: 10651 },
-    { year: 2004, women: 41, men: 59, total: 10625 },
-    { year: 2008, women: 43, men: 57, total: 10942 },
-    { year: 2012, women: 44, men: 56, total: 10568 },
-    { year: 2016, women: 45, men: 55, total: 11238 },
-    { year: 2020, women: 48, men: 52, total: 11656 },
-    { year: 2024, women: 50, men: 50, total: 10714 }
-  ];
+### Data Tables:
+- **Countries** (A1:F11)
+- **Paris2024_Medals** (H1:P11) 
+- **Historical_Trends** (A15:F24)
+- **Sports_Analysis** (H15:N25)
+- **Predictions_2028** (A30:E37)
 
-  const sportAnalysis = [
-    { sport: 'Swimming', medals: 35, countries: 28, growth: 15, competitiveness: 'High', prediction: 'Stable' },
-    { sport: 'Athletics', medals: 48, countries: 45, growth: 8, competitiveness: 'Very High', prediction: 'Stable' },
-    { sport: 'Cycling', medals: 12, countries: 18, growth: 25, competitiveness: 'Medium', prediction: 'Rising' },
-    { sport: 'Gymnastics', medals: 14, countries: 12, growth: 5, competitiveness: 'High', prediction: 'Stable' },
-    { sport: 'Rowing', medals: 14, countries: 22, growth: -5, competitiveness: 'Medium', prediction: 'Declining' },
-    { sport: 'Wrestling', medals: 18, countries: 35, growth: 12, competitiveness: 'High', prediction: 'Rising' },
-    { sport: 'Judo', medals: 15, countries: 28, growth: 18, competitiveness: 'High', prediction: 'Rising' },
-    { sport: 'Sailing', medals: 10, countries: 15, growth: -8, competitiveness: 'Medium', prediction: 'Declining' },
-    { sport: 'Skateboarding', medals: 4, countries: 8, growth: 200, competitiveness: 'Low', prediction: 'Emerging' },
-    { sport: 'Surfing', medals: 4, countries: 6, growth: 150, competitiveness: 'Low', prediction: 'Emerging' }
-  ];
+### Sample Data Structure:
 
-  // Calculate efficiency metrics
-  const efficiencyData = paris2024Data.map(country => ({
-    ...country,
-    medalsPerMillion: (country.total / (country.population / 1000000)).toFixed(2),
-    medalsPerGDP: (country.total / country.gdp).toFixed(2)
-  }));
+#### Countries Table 
+```
+Country | Code | Population | GDP | Continent | Athletes_2024
+USA     | USA  | 331900000  | 25.46 | N.America | 592
+China   | CHN  | 1412000000 | 17.73 | Asia      | 388
+Japan   | JPN  | 125800000  | 4.94  | Asia      | 409
+```
 
+#### Paris 2024 Medals (H1:P11):
+```
+Country | Gold | Silver | Bronze | Total | Pop_Mil | GDP_Tril | Med_Per_Mil | Med_Per_GDP | Efficiency
+USA     | 40   | 44     | 42     | 126   | 331.9   | 25.46    | 0.38       | 4.95        | 85
+China   | 40   | 27     | 24     | 91    | 1412.0  | 17.73    | 0.06       | 5.13        | 92
+```
 
-  const predictions2028 = [
-    { country: 'USA', predicted: 135, confidence: 85, reasoning: 'Home advantage, strong infrastructure' },
-    { country: 'China', predicted: 95, confidence: 80, reasoning: 'Continued investment, young talent' },
-    { country: 'Australia', predicted: 58, confidence: 75, reasoning: 'Growing sports programs' },
-    { country: 'Japan', predicted: 42, confidence: 70, reasoning: 'Post-Tokyo momentum maintaining' },
-    { country: 'France', predicted: 55, confidence: 65, reasoning: 'Paris 2024 legacy effects' },
-    { country: 'Netherlands', predicted: 38, confidence: 70, reasoning: 'Efficient small nation model' },
-    { country: 'GB', predicted: 62, confidence: 75, reasoning: 'Strong Olympic program continuity' }
-  ];
+---
 
-  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00ff00', '#ff00ff', '#00ffff', '#ffff00'];
+## Worksheet 2: Dashboard
+**Purpose:** Main dashboard with key metrics and visualizations
 
-  const renderOverview = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-80">Total Countries</p>
-              <p className="text-2xl font-bold">92</p>
-            </div>
-            <Globe className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-80">Medal Events</p>
-              <p className="text-2xl font-bold">329</p>
-            </div>
-            <Medal className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-80">Athletes</p>
-              <p className="text-2xl font-bold">10,714</p>
-            </div>
-            <Users className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 rounded-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-80">Gender Parity</p>
-              <p className="text-2xl font-bold">50:50</p>
-            </div>
-            <Award className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-      </div>
+### Key Performance Indicators (KPIs):
 
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">Paris 2024 Medal Table - Top 10 Countries</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={paris2024Data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="country" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="gold" fill="#FFD700" name="Gold" />
-            <Bar dataKey="silver" fill="#C0C0C0" name="Silver" />
-            <Bar dataKey="bronze" fill="#CD7F32" name="Bronze" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
+#### Cell B2: Total Countries
+```excel
+=COUNTA(RawData.B2:B11)
+```
 
-  const renderTrends = () => (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">Gender Participation Evolution (1996-2024)</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={genderTrends}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="year" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="women" stroke="#ff6b9d" strokeWidth={3} name="Women %" />
-            <Line type="monotone" dataKey="men" stroke="#4dabf7" strokeWidth={3} name="Men %" />
-          </LineChart>
-        </ResponsiveContainer>
-        <div className="mt-4 p-4 bg-green-50 rounded-lg">
-          <p className="text-sm text-green-800">
-            <strong>Key Insight:</strong> Paris 2024 achieved historic 50:50 gender parity, up from just 34% women in 1996. This represents a 47% increase in women's participation over 28 years.
-          </p>
-        </div>
-      </div>
+#### Cell D2: Gender Parity Achievement
+```excel
+="Achieved: " & RawData.F24 & ":" & RawData.G24
+```
 
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">Medal Efficiency by Population & GDP</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <ScatterChart data={efficiencyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="medalsPerMillion" name="Medals per Million" />
-            <YAxis dataKey="total" name="Total Medals" />
-            <Tooltip 
-              formatter={(value, name) => [value, name]}
-              labelFormatter={(label) => Medals per Million: ${label}}
-            />
-            <Scatter dataKey="total" fill="#8884d8" />
-          </ScatterChart>
-        </ResponsiveContainer>
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Efficiency Leaders:</strong> Small nations like Netherlands (1.95 medals/million) and Australia (2.06 medals/million) show exceptional efficiency compared to larger nations.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+#### Cell B4: Top Performer
+```excel
+=INDEX(RawData.H2:H11, MATCH(MAX(RawData.L2:L11), RawData.L2:L11, 0))
+```
 
-  const renderSports = () => (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">Sport Competitiveness & Growth Analysis</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-2">Sport</th>
-                <th className="text-center p-2">Medal Events</th>
-                <th className="text-center p-2">Countries</th>
-                <th className="text-center p-2">Growth %</th>
-                <th className="text-center p-2">Competitiveness</th>
-                <th className="text-center p-2">2028 Prediction</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sportAnalysis.map((sport, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
-                  <td className="p-2 font-medium">{sport.sport}</td>
-                  <td className="text-center p-2">{sport.medals}</td>
-                  <td className="text-center p-2">{sport.countries}</td>
-                  <td className="text-center p-2">
-                    <span className={sport.growth > 0 ? 'text-green-600' : 'text-red-600'}>
-                      {sport.growth > 0 ? '+' : ''}{sport.growth}%
-                    </span>
-                  </td>
-                  <td className="text-center p-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      sport.competitiveness === 'Very High' ? 'bg-red-100 text-red-800' :
-                      sport.competitiveness === 'High' ? 'bg-orange-100 text-orange-800' :
-                      sport.competitiveness === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {sport.competitiveness}
-                    </span>
-                  </td>
-                  <td className="text-center p-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      sport.prediction === 'Emerging' ? 'bg-purple-100 text-purple-800' :
-                      sport.prediction === 'Rising' ? 'bg-green-100 text-green-800' :
-                      sport.prediction === 'Stable' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {sport.prediction}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="mt-4 space-y-2">
-          <div className="p-3 bg-purple-50 rounded-lg">
-            <p className="text-sm text-purple-800">
-              <strong>Emerging Sports:</strong> Skateboarding and Surfing show explosive 150-200% growth, indicating strong youth appeal and future potential.
-            </p>
-          </div>
-          <div className="p-3 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-800">
-              <strong>Rising Stars:</strong> Cycling, Wrestling, and Judo show 12-25% growth with increasing global participation.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+### Dynamic Medal Table (A8:F18):
+```excel
+# Headers in A8:F8
+Country | Gold | Silver | Bronze | Total | Rank
 
-  const renderPredictions = () => (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">LA 2028 Medal Predictions</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={predictions2028}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="country" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="predicted" fill="#4dabf7" name="Predicted Medals" />
-          </BarChart>
-        </ResponsiveContainer>
-        
-        <div className="mt-6 space-y-4">
-          <h4 className="font-semibold text-gray-800">Prediction Analysis</h4>
-          {predictions2028.slice(0, 5).map((pred, index) => (
-            <div key={index} className="p-4 border rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-medium">{pred.country}</span>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-blue-600">{pred.predicted} medals</div>
-                  <div className="text-sm text-gray-500">{pred.confidence}% confidence</div>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600">{pred.reasoning}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+# Formula for Country (A9):
+=RawData.H2
 
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">Key Trends & Conclusions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-semibold text-green-700 mb-2">📈 Rising Trends</h4>
-            <ul className="space-y-2 text-sm">
-              <li>• Perfect gender parity achieved (50:50)</li>
-              <li>• Youth-oriented sports gaining popularity</li>
-              <li>• Small nations becoming more efficient</li>
-              <li>• Technology integration in training</li>
-              <li>• Climate considerations affecting venues</li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold text-blue-700 mb-2">🎯 LA 2028 Predictions</h4>
-            <ul className="space-y-2 text-sm">
-              <li>• USA medal count boost from home advantage</li>
-              <li>• Skateboarding/Surfing will expand further</li>
-              <li>• Breaking (breakdancing) may gain traction</li>
-              <li>• Traditional sports remain stable</li>
-              <li>• African nations to improve significantly</li>
-            </ul>
-          </div>
-        </div>
-        
-        <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
-          <h4 className="font-semibold text-yellow-800 mb-2">🔮 Future Olympic Evolution</h4>
-          <p className="text-sm text-yellow-700">
-            The Olympics are evolving toward greater inclusivity, sustainability, and youth engagement. 
-            Expect continued growth in urban sports, mixed-gender events, and participation from developing nations. 
-            Technology will play an increasing role in both performance and broadcast experiences.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+# Formula for Gold (B9):
+=VLOOKUP($A9, RawData.$H$2:$L$11, 2, FALSE)
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: Medal },
-    { id: 'trends', label: 'Trends', icon: TrendingUp },
-    { id: 'sports', label: 'Sports Analysis', icon: Target },
-    { id: 'predictions', label: 'Predictions', icon: Award }
-  ];
+# Formula for Total (E9):
+=B9+C9+D9
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Olympics Analysis Dashboard</h1>
-          <p className="text-gray-600">Comprehensive analysis of Olympic trends, patterns, and predictions</p>
-        </div>
+# Formula for Rank (F9):
+=RANK(E9, $E$9:$E$18, 0)
+```
 
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-2 justify-center">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-white text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+### Medal Efficiency Calculator:
+#### Medals per Million Population (G9):
+```excel
+=IFERROR(E9/(VLOOKUP($A9, RawData.$A$2:$C$11, 3, FALSE)/1000000), 0)
+```
 
-        <div className="transition-all duration-300">
-          {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'trends' && renderTrends()}
-          {activeTab === 'sports' && renderSports()}
-          {activeTab === 'predictions' && renderPredictions()}
-        </div>
-      </div>
-    </div>
-  );
-};
+#### Efficiency Score (H9):
+```excel
+=MIN(100, (G9/MAX($G$9:$G$18))*100)
+```
 
-export default OlympicsAnalysisDashboard;
+---
+
+## Worksheet 3: Trends Analysis
+**Purpose:** Historical trends and growth analysis
+
+### Gender Participation Trends Chart Data:
+
+#### Cumulative Growth Formula (E16):
+```excel
+=(C16-C15)/C15*100
+```
+
+#### Trend Projection for 2028 (C25):
+```excel
+=FORECAST.LINEAR(2028, C16:C24, B16:B24)
+```
+
+### Sport Growth Analysis:
+
+#### Growth Category (O16):
+```excel
+=IF(M16>100, "Emerging", 
+   IF(M16>10, "Rising", 
+      IF(M16>0, "Stable", "Declining")))
+```
+
+#### Competitiveness Score:
+```excel
+=SWITCH(L16, 
+  "Very High", 5,
+  "High", 4, 
+  "Medium", 3,
+  "Low", 2,
+  1) * (N16/10)
+```
+
+---
+
+## Worksheet 4: Predictions
+**Purpose:** LA 2028 predictions and scenario analysis
+
+### Prediction Confidence Intervals:
+
+#### Lower Bound (D31):
+```excel
+=C31*(1-B31/100*0.2)
+```
+
+#### Upper Bound (E31):
+```excel
+=C31*(1+B31/100*0.2)
+```
+
+### Scenario Analysis Table:
+
+#### Optimistic Scenario (+15%):
+```excel
+=C31*1.15
+```
+
+#### Pessimistic Scenario (-10%):
+```excel
+=C31*0.9
+```
+
+### Medal Prediction Model:
+```excel
+=ROUND((Previous_Games_Average * Host_Advantage_Factor * GDP_Growth_Factor * Population_Factor), 0)
+```
+
+Where:
+- Host_Advantage_Factor = 1.12 for host countries, 1.0 for others
+- GDP_Growth_Factor = 1 + (GDP_Growth_Rate/100)
+- Population_Factor = LOG(Population/1000000)/10
+
+---
+
+## Worksheet 5: Pivot Analysis
+**Purpose:** Dynamic pivot tables and charts
+
+### Pivot Table 1: Medals by Continent
+- Rows: Continent
+- Values: Sum of Total Medals
+- Filters: Year (2024)
+
+### Pivot Table 2: Sport Performance Matrix
+- Rows: Country
+- Columns: Sport Category
+- Values: Count of Medals
+- Filters: Medal Type
+
+### Advanced Pivot Formulas:
+
+#### Medal Share by Region:
+```excel
+=GETPIVOTDATA("Total", PivotTable1, "Continent", "Europe")/
+ GETPIVOTDATA("Total", PivotTable1)
+```
+
+---
+
+## Worksheet 6: Advanced Analytics
+**Purpose:** Statistical analysis and correlations
+
+### Correlation Analysis:
+
+#### Population vs Medal Correlation:
+```excel
+=CORREL(RawData.C2:C11, RawData.L2:L11)
+```
+
+#### GDP vs Medal Correlation:
+```excel
+=CORREL(RawData.D2:D11, RawData.L2:L11)
+```
+
+### Efficiency Benchmarking:
+
+#### Z-Score for Efficiency:
+```excel
+=(G9-AVERAGE($G$9:$G$18))/STDEV($G$9:$G$18)
+```
+
+#### Percentile Rank:
+```excel
+=PERCENTRANK($G$9:$G$18, G9)*100
+```
+
+### Predictive Modeling:
+
+#### Linear Regression for Medal Prediction:
+```excel
+=TREND(Known_Y_Values, Known_X_Values, New_X_Values)
+```
+
+#### Multiple Regression using LINEST:
+```excel
+=LINEST(Medal_Counts, Population_GDP_Array, TRUE, TRUE)
+```
+
+---
+
+## Charts and Visualizations
+
+### Chart 1: Medal Distribution (Clustered Column)
+- Data: Countries vs Gold/Silver/Bronze
+- Design: Custom Olympics colors (#FFD700, #C0C0C0, #CD7F32)
+
+### Chart 2: Efficiency Scatter Plot
+- X-axis: Medals per Million
+- Y-axis: Total Medals
+- Size: GDP
+- Color: Continent
+
+### Chart 3: Historical Trends (Multi-line)
+- Lines: Women%, Men%, Total Athletes
+- Trendlines: Linear with R-squared
+
+### Chart 4: Sport Growth Radar
+- Axes: Different sports
+- Values: Growth percentages
+- Multiple series: 2020 vs 2024
+
+---
+
+## Conditional Formatting Rules
+
+### Medal Table Formatting:
+1. **Top 3 Countries:** Green gradient
+2. **Gold Medals > 30:** Gold background
+3. **Efficiency Score > 1.5:** Bold text
+4. **Declining Sports:** Red text with down arrow
+
+### Data Validation:
+- Country codes: List validation
+- Medal counts: Whole numbers ≥ 0
+- Percentages: Between 0 and 100
+
+---
+
+## Macros and VBA Functions
+
+### Auto-Refresh Data Macro:
+```vba
+Sub RefreshOlympicsData()
+    Dim conn As Object
+    Set conn = CreateObject("ADODB.Connection")
+    conn.Open "YourConnectionString"
+    ' Refresh data from SQL database
+    ActiveSheet.QueryTables.Refresh
+End Sub
+```
+
+### Dynamic Chart Update:
+```vba
+Function UpdateChartData()
+    Dim lastRow As Long
+    lastRow = Cells(Rows.Count, 1).End(xlUp).Row
+    ActiveSheet.ChartObjects("MedalChart").Chart.SetSourceData _
+        Range("A1:F" & lastRow)
+End Function
+```
+
+---
+
+## Usage Instructions
+
+1. **Data Import:** Use Data > Get Data > From Database to connect to SQL
+2. **Refresh:** Press Ctrl+Alt+F5 to refresh all connections
+3. **Filter:** Use slicers for interactive filtering
+4. **Export:** Use File > Export for PowerPoint integration
+5. **Print:** Set up print areas for executive summary
+
+### File Structure:
+- **File Name:** Olympics_Analysis_2024.xlsx
+- **Size:** ~15MB (with data and charts)
+- **Compatibility:** Excel 2019 or later
+- **Dependencies:** SQL Server connection for live data
